@@ -1,44 +1,105 @@
+--- a/tools/interfaces/IPlatform.py
++++ b/tools/interfaces/IPlatform.py
+@@ -71,6 +71,17 @@
+         reply, status = self.client.transact_sync_reply(
+             TRANSACTION_getAppsInfo, request)
+
++        return self.readAppsInfo(reply, status)
++
++    def getAppsInfoAsync(self, callback, done):
++        return self.client.transact(
++            TRANSACTION_getAppsInfo, 0, self.client.new_request(),
++            lambda reply, status: callback(self.readAppsInfo(reply, status)),
++            done,
++        )
++
++    @staticmethod
++    def readAppsInfo(reply, status):
+         apps_list = []
+         if status:
+             logging.error("Sending reply failed")
 --- a/tools/services/user_manager.py
 +++ b/tools/services/user_manager.py
-@@ -130,6 +130,13 @@
+@@ -130,6 +130,43 @@
 
          desktop_file.save_to_file(str(desktop_file_path))
 
-+    def syncMissingDesktopFiles(platformService):
-+        for app in platformService.getAppsInfo():
-+            desktop_file = apps_dir / f"waydroid.{app['packageName']}.desktop"
-+            if not desktop_file.exists():
-+                updateDesktopFile(app)
-+        return GLib.SOURCE_CONTINUE
++    desktop_generation = 0
++
++    def scheduleDesktopSync(platformService):
++        pending = 0
++
++        def syncMissingDesktopFiles(apps, generation):
++            if generation != desktop_generation or stopping:
++                return
++            for app in apps:
++                desktop_file = apps_dir / f"waydroid.{app['packageName']}.desktop"
++                if not desktop_file.exists():
++                    updateDesktopFile(app)
++
++        def queryFinished():
++            nonlocal pending
++            pending = 0
++
++        def poll():
++            nonlocal pending
++            if not pending:
++                generation = desktop_generation
++                pending = platformService.getAppsInfoAsync(
++                    lambda apps: syncMissingDesktopFiles(apps, generation), queryFinished
++                )
++            return GLib.SOURCE_CONTINUE
++
++        source = GLib.timeout_add_seconds(30, poll)
++
++        def stopSync():
++            nonlocal desktop_generation
++            desktop_generation += 1
++            GLib.source_remove(source)
++            if pending:
++                platformService.client.cancel(pending)
++
++        return stopSync
 +
      def userUnlocked(uid):
          cfg = tools.config.load(args)
          logging.info("Android with user {} is ready".format(uid))
-@@ -148,6 +155,9 @@
+@@ -145,13 +182,19 @@
+             appsList = platformService.getAppsInfo()
+             for app in appsList:
+                 updateDesktopFile(app)
++            known = {f"waydroid.{app['packageName']}.desktop" for app in appsList}
              for existing in apps_dir.glob("waydroid.*.desktop"):
-                 if existing.name not in map(lambda appInfo: f"waydroid.{appInfo['packageName']}.desktop", appsList):
+-                if existing.name not in map(lambda appInfo: f"waydroid.{appInfo['packageName']}.desktop", appsList):
++                if existing.name not in known:
                      existing.unlink()
-+            if args.desktop_sync_source is not None:
-+                GLib.source_remove(args.desktop_sync_source)
-+            args.desktop_sync_source = GLib.timeout_add_seconds(15, syncMissingDesktopFiles, platformService)
++            if args.stop_desktop_sync is not None:
++                args.stop_desktop_sync()
++            args.stop_desktop_sync = scheduleDesktopSync(platformService)
          if unlocked_cb:
              unlocked_cb()
 
-@@ -167,6 +177,7 @@
+     def packageStateChanged(mode, packageName, uid):
++        nonlocal desktop_generation
++        desktop_generation += 1
+         platformService = IPlatform.get_service(args)
+         if platformService:
+             desktop_file_path = apps_dir / f"waydroid.{packageName}.desktop"
+@@ -167,6 +210,7 @@
 
      global stopping
      stopping = False
-+    args.desktop_sync_source = None
++    args.stop_desktop_sync = None
      args.user_manager = threading.Thread(target=service_thread)
      args.user_manager.start()
 
-@@ -174,6 +185,9 @@
+@@ -174,6 +218,9 @@
  def stop(args):
      global stopping
      stopping = True
-+    if args.desktop_sync_source is not None:
-+        GLib.source_remove(args.desktop_sync_source)
-+        args.desktop_sync_source = None
++    if getattr(args, "stop_desktop_sync", None) is not None:
++        args.stop_desktop_sync()
++        args.stop_desktop_sync = None
      try:
          if args.userMonitorLoop:
              args.userMonitorLoop.quit()
