@@ -1,10 +1,12 @@
 --- a/tools/interfaces/IPlatform.py
 +++ b/tools/interfaces/IPlatform.py
-@@ -71,6 +71,17 @@
+@@ -71,34 +71,57 @@
          reply, status = self.client.transact_sync_reply(
              TRANSACTION_getAppsInfo, request)
 
-+        return self.readAppsInfo(reply, status)
+-        apps_list = []
+-        if status:
++        return self.readAppsInfo(reply, status) or []
 +
 +    def getAppsInfoAsync(self, callback, done):
 +        return self.client.transact(
@@ -15,12 +17,112 @@
 +
 +    @staticmethod
 +    def readAppsInfo(reply, status):
-         apps_list = []
-         if status:
++        if status or reply is None:
              logging.error("Sending reply failed")
+-        else:
+-            reader = reply.init_reader()
+-            status, exception = reader.read_int32()
+-            if exception == 0:
+-                status, apps = reader.read_int32()
+-                for j in range(apps):
+-                    status, has_value = reader.read_int32()
+-                    if has_value == 1:
+-                        appinfo = {
+-                            "name": reader.read_string16(),
+-                            "packageName": reader.read_string16(),
+-                            "action": reader.read_string16(),
+-                            "launchIntent": reader.read_string16(),
+-                            "componentPackageName": reader.read_string16(),
+-                            "componentClassName": reader.read_string16(),
+-                            "categories": []
+-                        }
+-                        status, categories = reader.read_int32()
+-                        for i in range(categories):
+-                            appinfo["categories"].append(reader.read_string16())
+-                        apps_list.append(appinfo)
+-            else:
+-                logging.error("Failed with code: {}".format(exception))
++            return None
++
++        reader = reply.init_reader()
++        ok, exception = reader.read_int32()
++        if not ok or exception != 0:
++            logging.error("Invalid app list reply")
++            return None
++
++        ok, count = reader.read_int32()
++        if not ok or count < 0:
++            return None
++
++        apps = []
++        fields = (
++            "name", "packageName", "action", "launchIntent",
++            "componentPackageName", "componentClassName",
++        )
++        try:
++            for _ in range(count):
++                ok, has_value = reader.read_int32()
++                if not ok or has_value != 1:
++                    return None
++                app = {key: reader.read_string16() for key in fields}
++                package = app["packageName"]
++                if not package or not package.isascii() or not all(
++                    part and part.replace("_", "a").isalnum() for part in package.split(".")
++                ):
++                    return None
++                ok, categories = reader.read_int32()
++                if not ok or categories < 0:
++                    return None
++                app["categories"] = [reader.read_string16() for _ in range(categories)]
++                apps.append(app)
++        except (AttributeError, TypeError, ValueError):
++            logging.error("Malformed app list reply")
++            return None
+
+-        return apps_list
++        return apps
+
+     def getAppInfo(self, arg1):
+         request = self.client.new_request()
 --- a/tools/services/user_manager.py
 +++ b/tools/services/user_manager.py
-@@ -130,6 +130,43 @@
+@@ -90,6 +90,11 @@
+                     desktop_file.save_to_file(str(app))
+             migrated_apps_path.touch()
+
++    fallback_icons = set()
++
++    def appIcon(package):
++        return waydroid_data_icons_dir / f"{package}.png"
++
+     # Creates, deletes, or updates desktop file
+     def updateDesktopFile(appInfo):
+         if appInfo is None:
+@@ -106,6 +111,7 @@
+
+         if not showApp:
+             # Remove the desktop file if it exists and do not create a new one.
++            fallback_icons.discard(packageName)
+             desktop_file_path.unlink(missing_ok=True)
+             return
+
+@@ -117,7 +123,14 @@
+         desktop_file.set_string("Desktop Entry", "Type", "Application")
+         desktop_file.set_string("Desktop Entry", "Name", appInfo["name"])
+         desktop_file.set_string("Desktop Entry", "Exec", f"waydroid app launch {packageName}")
+-        desktop_file.set_string("Desktop Entry", "Icon", str(waydroid_data_icons_dir / f"{packageName}.png"))
++        icon = appIcon(packageName)
++        if icon.is_file():
++            fallback_icons.discard(packageName)
++            icon_name = str(icon)
++        else:
++            fallback_icons.add(packageName)
++            icon_name = "waydroid"
++        desktop_file.set_string("Desktop Entry", "Icon", icon_name)
+         glib_key_file_prepend_string_list(desktop_file, "Desktop Entry", "Categories", ["X-WayDroid-App"])
+         desktop_file.set_string_list("Desktop Entry", "X-Purism-FormFactor", ["Workstation", "Mobile"])
+         glib_key_file_prepend_string_list(desktop_file, "Desktop Entry", "Actions", ["app-settings"])
+@@ -130,6 +143,55 @@
 
          desktop_file.save_to_file(str(desktop_file_path))
 
@@ -28,14 +130,25 @@
 +
 +    def scheduleDesktopSync(platformService):
 +        pending = 0
++        refresh = True
 +
-+        def syncMissingDesktopFiles(apps, generation):
-+            if generation != desktop_generation or stopping:
++        def syncDesktopFiles(apps, generation):
++            nonlocal refresh
++            if apps is None or generation != desktop_generation or stopping:
 +                return
++            packages = {app["packageName"] for app in apps}
++            known = {f"waydroid.{package}.desktop" for package in packages}
++            fallback_icons.intersection_update(packages)
 +            for app in apps:
-+                desktop_file = apps_dir / f"waydroid.{app['packageName']}.desktop"
-+                if not desktop_file.exists():
++                package = app["packageName"]
++                desktop_file = apps_dir / f"waydroid.{package}.desktop"
++                if (refresh or not desktop_file.exists()
++                        or (package in fallback_icons and appIcon(package).is_file())):
 +                    updateDesktopFile(app)
++            for existing in apps_dir.glob("waydroid.*.desktop"):
++                if existing.name not in known:
++                    existing.unlink(missing_ok=True)
++            refresh = False
 +
 +        def queryFinished():
 +            nonlocal pending
@@ -46,10 +159,11 @@
 +            if not pending:
 +                generation = desktop_generation
 +                pending = platformService.getAppsInfoAsync(
-+                    lambda apps: syncMissingDesktopFiles(apps, generation), queryFinished
++                    lambda apps: syncDesktopFiles(apps, generation), queryFinished
 +                )
 +            return GLib.SOURCE_CONTINUE
 +
++        poll()
 +        source = GLib.timeout_add_seconds(30, poll)
 +
 +        def stopSync():
@@ -64,15 +178,16 @@
      def userUnlocked(uid):
          cfg = tools.config.load(args)
          logging.info("Android with user {} is ready".format(uid))
-@@ -145,13 +182,19 @@
-             appsList = platformService.getAppsInfo()
-             for app in appsList:
-                 updateDesktopFile(app)
-+            known = {f"waydroid.{app['packageName']}.desktop" for app in appsList}
-             for existing in apps_dir.glob("waydroid.*.desktop"):
+@@ -142,24 +204,23 @@
+
+         platformService = IPlatform.get_service(args)
+         if platformService:
+-            appsList = platformService.getAppsInfo()
+-            for app in appsList:
+-                updateDesktopFile(app)
+-            for existing in apps_dir.glob("waydroid.*.desktop"):
 -                if existing.name not in map(lambda appInfo: f"waydroid.{appInfo['packageName']}.desktop", appsList):
-+                if existing.name not in known:
-                     existing.unlink()
+-                    existing.unlink()
 +            if args.stop_desktop_sync is not None:
 +                args.stop_desktop_sync()
 +            args.stop_desktop_sync = scheduleDesktopSync(platformService)
@@ -82,10 +197,24 @@
      def packageStateChanged(mode, packageName, uid):
 +        nonlocal desktop_generation
 +        desktop_generation += 1
++        if mode == IUserMonitor.PACKAGE_REMOVED:
++            desktop_file_path = apps_dir / f"waydroid.{packageName}.desktop"
++            fallback_icons.discard(packageName)
++            desktop_file_path.unlink(missing_ok=True)
++            return
          platformService = IPlatform.get_service(args)
          if platformService:
-             desktop_file_path = apps_dir / f"waydroid.{packageName}.desktop"
-@@ -167,6 +210,7 @@
+-            desktop_file_path = apps_dir / f"waydroid.{packageName}.desktop"
+-            if mode == IUserMonitor.PACKAGE_REMOVED:
+-                desktop_file_path.unlink(missing_ok=True)
+-            else:
+-                appInfo = platformService.getAppInfo(packageName)
+-                updateDesktopFile(appInfo)
++            updateDesktopFile(platformService.getAppInfo(packageName))
+
+     def service_thread():
+         while not stopping:
+@@ -167,6 +228,7 @@
 
      global stopping
      stopping = False
@@ -93,7 +222,7 @@
      args.user_manager = threading.Thread(target=service_thread)
      args.user_manager.start()
 
-@@ -174,6 +218,9 @@
+@@ -174,6 +236,9 @@
  def stop(args):
      global stopping
      stopping = True
