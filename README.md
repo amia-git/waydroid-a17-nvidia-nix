@@ -23,7 +23,7 @@ If your system still uses a plain `configuration.nix`, create `/etc/nixos/flake.
 ```nix
 {
   inputs = {
-    waydroid-a17-nvidia-nix.url = "github:ariaofdelusion/waydroid-a17-nvidia-nix";
+    waydroid-a17-nvidia-nix.url = "github:amia-git/waydroid-a17-nvidia-nix";
     nixpkgs.follows = "waydroid-a17-nvidia-nix/nixpkgs";
   };
 
