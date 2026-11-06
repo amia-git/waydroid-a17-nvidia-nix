@@ -2,11 +2,11 @@
 
 # KernelSU as a host DKMS module
 
-Waydroid shares the host kernel. Install the KernelSU loadable module on the host using the upstream Arch AUR package `kernelsu-dkms` and supechicken's `waydroid-experimental` branch. Android init runs `/data/adb/ksud` when the container starts.
+Waydroid shares the host kernel. KernelSU requires a compatible host kernel module from supechicken’s `waydroid-experimental` branch. Android init runs `/data/adb/ksud` when the container starts.
 
-The kernel module accepts one manager signing certificate. The official KernelSU manager versionCode does not match this branch. Build and sign your own manager, then compile the certificate length and SHA-256 into the module. Replace the maintainer's `_ksu_expected_size` and `_ksu_expected_hash` in `kernelsu-dkms/PKGBUILD` with values from your own signing key.
+The kernel module accepts one manager signing certificate. The official KernelSU manager versionCode does not match this branch. Build and sign your own manager, then compile the certificate length and SHA-256 into the module. Use the certificate values printed in step 3 when building your host module.
 
-The following commands are running in the root directory of this repository, which requires podman and this repository. `container/` , compile the image of the `localhost/waydroid-a17-build` See Root Directory README.
+Run the manager build commands from the repository root with Podman installed.
 
 ## 1. Management source code
 
@@ -17,7 +17,7 @@ git clone -b waydroid-experimental https://github.com/supechicken/KernelSU ksu/K
 git -C ksu/KernelSU checkout b42ad45981ede55fa84ccdf102956349812e31a5
 ```
 
-The manager ' s versionCode is `30000 + git rev-list --count HEAD` (this submission is 32708), which must be consistent with the version at the time the module is compiled. When alternative submission is made, the `2708`/`32708` in `sign-manager.sh` is modified and the `kernelsu-dkms` is submitted together.
+The manager ' s versionCode is `30000 + git rev-list --count HEAD` (this submission is 32708), which must be consistent with the version at the time the module is compiled. If you change the pinned commit, update the expected version in `sign-manager.sh` and use the same source revision for the host module.
 
 ## 2. Generate your own signature key
 
@@ -48,18 +48,9 @@ python3 ksu/apk_certificate.py ksu/out/KernelSU_*_32708-local.apk
 
 The final command prints `KSU_EXPECTED_SIZE` and `KSU_EXPECTED_HASH`. Sign with APK Signature Scheme v2 only. The kernel module does not accept v3 or other signature blocks.
 
-## 4. Compilation and installation of kernel modules
+## 4. Configure the host module
 
-```bash
-yay -G kernelsu-dkms            # Take the remaining AUR package files (Makefile, dkms.conf, patches, etc.)
-cp kernelsu/kernelsu-dkms/PKGBUILD kernelsu-dkms/
-# Change _ksu_expected_size/ _ksu_expected_hash from PKGBUILD to the value for print at step 3
-(cd kernelsu-dkms && makepkg -si)
-sudo install -m 644 host/kernelsu-load.service /etc/systemd/system/
-sudo systemctl enable --now kernelsu-load.service
-```
-
-`kernelsu-load.service` Load the module before `waydroid-container`.
+This flake does not package the KernelSU kernel module. Before proceeding, provide a compatible module for your NixOS kernel using the source revision and certificate values above. Configure NixOS to load it before Waydroid starts.
 
 ## 5. Installation of Android
 

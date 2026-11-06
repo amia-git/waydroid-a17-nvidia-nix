@@ -1,5 +1,7 @@
 > Translated from Chinese.
 
+> This is a historical upstream report. Packaging commands and file paths refer to the [upstream repository](https://github.com/cagedbird043/waydroid-a17-nvidia/tree/a17-20261031-2).
+
 # Android 17 HWUI: Two NVK graphics queues
 
 ## Result
