@@ -127,6 +127,10 @@ stock.overridePythonAttrs (old: {
     substituteInPlace "$libdir/native/packaging/native/release_gate.py" \
       --replace-fail /usr/lib/waydroid-nvidia "$libdir" \
       --replace-fail '#!/bin/sh' '#!${runtimeShell}'
+    substituteInPlace "$libdir/native/packaging/native/vendor_image.py" \
+      --replace-fail $'    if srcn.OVERRIDE.exists():\n        shutil.copy2(srcn.OVERRIDE, backup / \'source-native.conf\')\n' "" \
+      --replace-fail $'        srcn.OVERRIDE.parent.mkdir(parents=True, exist_ok=True)\n        srcn.write_atomic(srcn.OVERRIDE, srcn.render_override(None))\n        subprocess.run([\'systemctl\', \'daemon-reload\'], check=True)\n' "" \
+      --replace-fail $'        if (backup / \'source-native.conf\').exists():\n            shutil.copy2(backup / \'source-native.conf\', srcn.OVERRIDE)\n        else:\n            srcn.OVERRIDE.unlink(missing_ok=True)\n        subprocess.run([\'systemctl\', \'daemon-reload\'])\n' ""
     substituteInPlace "$out/share/dbus-1/system-services/id.waydro.Container.service" \
       --replace-fail /usr/bin/waydroid "$out/bin/waydroid"
     substituteInPlace "$out/bin/waydroid-nvidia-setup" \
@@ -135,6 +139,8 @@ stock.overridePythonAttrs (old: {
       --replace-fail '[ -d "$GUEST" ] || die "$GUEST missing (broken package?)"' "" \
       --replace-fail 'systemctl enable --now waydroid-container.service' 'systemctl start waydroid-container.service' \
       --replace-fail 'say "enabling and starting waydroid-container.service"' 'say "starting waydroid-container.service"' \
+      --replace-fail ' and removing the container unit check' "" \
+      --replace-fail $'    dropin=/etc/systemd/system/waydroid-container.service.d/source-native.conf\n    if [ -f "$dropin" ] && grep -q "$NATIVE" "$dropin"; then rm -f "$dropin"; systemctl daemon-reload; fi\n' "" \
       --replace-fail 'if [ ! -f "$CFG" ]; then' $'[ -f "$CFG" ] || die "Initialize Waydroid with the Android 17 system and vendor images first."\nif [ ! -f "$CFG" ]; then' \
       --replace-fail 'MODE=$(REFRESH=' $'[ "$MODE_ARG" != venus ] || die "This package supports nvidia-prolapse mode."\nMODE_ARG=nvidia-prolapse\nMODE=$(REFRESH=' \
       --replace-fail 'and use the Venus mode meanwhile: sudo waydroid-nvidia-setup --mode venus' 'with the GPU check logs.'
