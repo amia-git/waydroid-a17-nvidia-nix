@@ -96,6 +96,7 @@ stock.overridePythonAttrs (old: {
       patch -p1 < "$patchFile"
     done
     cmp ${patchedHost}/waydroid/nvidia_native.py tools/helpers/nvidia_native.py
+    patch -p1 < ${./sync-desktop-files.patch}
     substituteInPlace data/configs/config_base \
       --replace-fail 'lxc.mount.auto = cgroup:ro sys:ro proc' 'lxc.mount.auto = cgroup2:force sys:ro proc'
   '';

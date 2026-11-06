@@ -1,0 +1,44 @@
+--- a/tools/services/user_manager.py
++++ b/tools/services/user_manager.py
+@@ -130,6 +130,13 @@
+
+         desktop_file.save_to_file(str(desktop_file_path))
+
++    def syncMissingDesktopFiles(platformService):
++        for app in platformService.getAppsInfo():
++            desktop_file = apps_dir / f"waydroid.{app['packageName']}.desktop"
++            if not desktop_file.exists():
++                updateDesktopFile(app)
++        return GLib.SOURCE_CONTINUE
++
+     def userUnlocked(uid):
+         cfg = tools.config.load(args)
+         logging.info("Android with user {} is ready".format(uid))
+@@ -148,6 +155,9 @@
+             for existing in apps_dir.glob("waydroid.*.desktop"):
+                 if existing.name not in map(lambda appInfo: f"waydroid.{appInfo['packageName']}.desktop", appsList):
+                     existing.unlink()
++            if args.desktop_sync_source is not None:
++                GLib.source_remove(args.desktop_sync_source)
++            args.desktop_sync_source = GLib.timeout_add_seconds(15, syncMissingDesktopFiles, platformService)
+         if unlocked_cb:
+             unlocked_cb()
+
+@@ -167,6 +177,7 @@
+
+     global stopping
+     stopping = False
++    args.desktop_sync_source = None
+     args.user_manager = threading.Thread(target=service_thread)
+     args.user_manager.start()
+
+@@ -174,6 +185,9 @@
+ def stop(args):
+     global stopping
+     stopping = True
++    if args.desktop_sync_source is not None:
++        GLib.source_remove(args.desktop_sync_source)
++        args.desktop_sync_source = None
+     try:
+         if args.userMonitorLoop:
+             args.userMonitorLoop.quit()
