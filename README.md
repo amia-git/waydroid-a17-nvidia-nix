@@ -109,6 +109,17 @@ waydroid show-full-ui
 
 To restore the original vendor image, run `sudo waydroid-nvidia-setup --restore-official-vendor`.
 
+### Open Android apps in separate KDE windows
+
+While Android is running, enable Waydroid's multi-window mode. Save any open Android work before stopping the session to apply the setting.
+
+```sh
+waydroid prop set persist.waydroid.multi_windows true
+waydroid session stop
+```
+
+Open an individual Android app from KDE's application menu, or run `waydroid app launch <package-name>`. Launching the app starts the session if needed. KDE can then give each app its own window and title bar. Use `waydroid show-full-ui` when you want the whole Android desktop in one window. [Waydroid desktop instructions](https://docs.waydro.id/usage/install-on-desktops)
+
 ## Update an existing installation
 
 From the directory containing your **NixOS system flake**, update the Waydroid input and activate the new configuration. Replace `my-host` with your configuration name, and use your own input name if it differs from the install example. If the flake directory is root-owned, run the lock-file update with `sudo` too.
