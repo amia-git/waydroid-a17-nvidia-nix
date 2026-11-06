@@ -107,7 +107,24 @@ Once the session reports that Android is ready, open the UI from another termina
 waydroid show-full-ui
 ```
 
-Run `sudo waydroid-nvidia-setup` again after updating the NVIDIA driver or this package. To restore the original vendor image, run `sudo waydroid-nvidia-setup --restore-official-vendor`.
+To restore the original vendor image, run `sudo waydroid-nvidia-setup --restore-official-vendor`.
+
+## Update an existing installation
+
+From the directory containing your **NixOS system flake**, update the Waydroid input and activate the new configuration. Replace `my-host` with your configuration name, and use your own input name if it differs from the install example. If the flake directory is root-owned, run the lock-file update with `sudo` too.
+
+```sh
+nix flake update waydroid-a17-nvidia-nix
+sudo nixos-rebuild switch --flake .#my-host
+```
+
+If the update also changes your kernel or NVIDIA driver, boot into the new generation first. Save any open Android work, then run the setup helper again so it can check the loaded driver and refresh the container configuration. Your existing Android images and app data carry over.
+
+```sh
+waydroid session stop
+sudo waydroid-nvidia-setup
+waydroid show-full-ui
+```
 
 ## Performance on NixOS
 
