@@ -73,6 +73,10 @@ before use to reject malformed buffers safely.
 Basemark on Android only ships ETC2 textures, which NVK has to emulate, while the host uses BC7, so the comparison
 favours the host. Details in [`reports/`](reports/).
 
+### Install (NixOS)
+
+See [Waydroid A17 NVIDIA on NixOS](NIXOS.md) for the flake module and Android image setup.
+
 ### 📦 Install (Arch Linux)
 
 ```bash
