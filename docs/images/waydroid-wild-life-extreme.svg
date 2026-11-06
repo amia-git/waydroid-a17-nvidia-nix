@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="856" height="568" viewBox="0 0 856 568" role="img" aria-labelledby="title desc">
+  <title id="title">3DMark Wild Life Extreme on Waydroid</title>
+  <desc id="desc">Single run on a GeForce RTX 4060 Ti. Score 17,299, average 103.59 FPS, reported range 51 to 125 FPS. The score was higher than 99 percent of results across devices. The frame-rate trace is approximated from the screenshot.</desc>
+  <defs>
+    <linearGradient id="background" x2="1" y2="1">
+      <stop stop-color="#121f39"/><stop offset="1" stop-color="#0a101e"/>
+    </linearGradient>
+    <linearGradient id="accent">
+      <stop stop-color="#6bdcff"/><stop offset="1" stop-color="#a5f984"/>
+    </linearGradient>
+    <linearGradient id="area" x2="0" y2="1">
+      <stop stop-color="#6bdcff" stop-opacity=".28"/><stop offset="1" stop-color="#6bdcff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <style>
+    text { font-family: system-ui, sans-serif; fill: #eff7ff; }
+    .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; fill: #79dcff; }
+    .heading { font-size: 32px; font-weight: 750; }
+    .label { font-size: 14px; fill: #afc3dd; }
+    .value { font-size: 30px; font-weight: 750; }
+    .section { font-size: 17px; font-weight: 700; }
+    .tick { font-size: 12px; fill: #afc3dd; }
+  </style>
+  <rect x="1" y="1" width="854" height="566" rx="22" fill="url(#background)" stroke="#304968"/>
+  <text x="32" y="39" class="eyebrow">WAYDROID ON NIXOS / SINGLE RUN</text>
+  <text x="32" y="76" class="heading">3DMark Wild Life Extreme</text>
+  <text x="33" y="102" class="label">GeForce RTX 4060 Ti · Android 17 · November 5, 2026</text>
+  <rect x="32" y="123" width="792" height="86" rx="13" fill="#172640"/>
+  <path d="M296 140V191 M560 140V191" stroke="#314867"/>
+  <text x="52" y="162" class="value">17,299</text><text x="52" y="187" class="label">Overall score</text>
+  <text x="316" y="162" class="value">103.59 FPS</text><text x="316" y="187" class="label">Average frame rate</text>
+  <text x="580" y="162" class="value">51–125 FPS</text><text x="580" y="187" class="label">Reported frame-rate range</text>
+  <text x="33" y="237" class="section">Higher than 99% of results across devices</text>
+  <rect x="33" y="250" width="790" height="9" rx="4.5" fill="#304563"/>
+  <rect x="33" y="250" width="782.1" height="9" rx="4.5" fill="url(#accent)"/>
+  <text x="33" y="298" class="section">Frame rate over time (FPS)</text>
+  <text x="813" y="298" text-anchor="end" class="tick">Dashed line · reported average</text>
+  <path d="M82 493H808" stroke="#263956"/><text x="68" y="497" text-anchor="end" class="tick">0</text>
+  <path d="M82 448.6H808" stroke="#263956"/><text x="68" y="452.6" text-anchor="end" class="tick">30</text>
+  <path d="M82 404.2H808" stroke="#263956"/><text x="68" y="408.2" text-anchor="end" class="tick">60</text>
+  <path d="M82 359.8H808" stroke="#263956"/><text x="68" y="363.8" text-anchor="end" class="tick">90</text>
+  <path d="M82 315.4H808" stroke="#263956"/><text x="68" y="319.4" text-anchor="end" class="tick">120</text>
+  <path d="M82 417.5 L85 333.2 L88 327.2 L95.3 337.6 L105 404.2 L108.6 393.8 L117.1 343.5 L125.6 333.2 L135.2 343.5 L137.7 339.1 L147.3 362.8 L158.2 368.7 L167.9 353.9 L182.4 343.5 L192.1 350.9 L211.5 358.3 L217.5 312.4 L228.4 311 L239.3 316.9 L256.2 316.9 L262.3 322.8 L264.7 311 L275.6 311 L293.8 318.4 L311.9 313.9 L332.5 315.4 L339.7 311 L344.6 321.3 L349.4 309.5 L355.5 322.8 L360.3 319.8 L367.6 328.7 L376 321.3 L385.7 328.7 L394.2 343.5 L396.6 334.6 L417.2 322.8 L428.1 315.4 L437.7 316.9 L441.4 311 L447.4 321.3 L454.7 352.4 L458.3 315.4 L512.8 315.4 L517.6 308 L530.9 316.9 L538.2 325.8 L562.4 328.7 L567.2 350.9 L580.5 374.6 L582.9 370.2 L591.4 376.1 L599.9 374.6 L610.8 382 L613.2 379 L615.6 331.7 L626.5 334.6 L647.1 342 L660.4 342 L670.1 352.4 L674.9 362.8 L695.5 373.1 L697.9 382 L702.7 371.6 L705.1 380.5 L707.6 371.6 L718.5 379 L723.3 361.3 L733 355.4 L741.4 359.8 L751.1 352.4 L759.6 356.8 L768.1 371.6 L774.1 374.6 L781.4 367.2 L787.4 367.2 L791.1 376.1 L793.5 367.2 L799.5 361.3 L808 359.8 L808 493 H82 Z" fill="url(#area)"/>
+  <path d="M82 339.7H808" stroke="#a5f984" stroke-width="1.5" stroke-dasharray="5 5"/>
+  <path d="M82 417.5 L85 333.2 L88 327.2 L95.3 337.6 L105 404.2 L108.6 393.8 L117.1 343.5 L125.6 333.2 L135.2 343.5 L137.7 339.1 L147.3 362.8 L158.2 368.7 L167.9 353.9 L182.4 343.5 L192.1 350.9 L211.5 358.3 L217.5 312.4 L228.4 311 L239.3 316.9 L256.2 316.9 L262.3 322.8 L264.7 311 L275.6 311 L293.8 318.4 L311.9 313.9 L332.5 315.4 L339.7 311 L344.6 321.3 L349.4 309.5 L355.5 322.8 L360.3 319.8 L367.6 328.7 L376 321.3 L385.7 328.7 L394.2 343.5 L396.6 334.6 L417.2 322.8 L428.1 315.4 L437.7 316.9 L441.4 311 L447.4 321.3 L454.7 352.4 L458.3 315.4 L512.8 315.4 L517.6 308 L530.9 316.9 L538.2 325.8 L562.4 328.7 L567.2 350.9 L580.5 374.6 L582.9 370.2 L591.4 376.1 L599.9 374.6 L610.8 382 L613.2 379 L615.6 331.7 L626.5 334.6 L647.1 342 L660.4 342 L670.1 352.4 L674.9 362.8 L695.5 373.1 L697.9 382 L702.7 371.6 L705.1 380.5 L707.6 371.6 L718.5 379 L723.3 361.3 L733 355.4 L741.4 359.8 L751.1 352.4 L759.6 356.8 L768.1 371.6 L774.1 374.6 L781.4 367.2 L787.4 367.2 L791.1 376.1 L793.5 367.2 L799.5 361.3 L808 359.8" fill="none" stroke="#6bdcff" stroke-width="2.3" stroke-linejoin="round"/>
+  <text x="82" y="518" text-anchor="middle" class="tick">0s</text>
+  <text x="203" y="518" text-anchor="middle" class="tick">10s</text>
+  <text x="324" y="518" text-anchor="middle" class="tick">20s</text>
+  <text x="445" y="518" text-anchor="middle" class="tick">30s</text>
+  <text x="566" y="518" text-anchor="middle" class="tick">40s</text>
+  <text x="687" y="518" text-anchor="middle" class="tick">50s</text>
+  <text x="808" y="518" text-anchor="middle" class="tick">60s</text>
+  <text x="33" y="546" class="tick">Trace approximated from the result screenshot. Score, average, and range are reported by 3DMark.</text>
+</svg>

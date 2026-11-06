@@ -109,8 +109,14 @@ waydroid show-full-ui
 
 Run `sudo waydroid-nvidia-setup` again after updating the NVIDIA driver or this package. To restore the original vendor image, run `sudo waydroid-nvidia-setup --restore-official-vendor`.
 
+## Performance on NixOS
+
+![3DMark Wild Life Extreme on Waydroid. Score 17,299, average 103.59 FPS, reported range 51–125 FPS, and higher than 99% of results across devices.](docs/images/waydroid-wild-life-extreme.svg)
+
+Single run on an RTX 4060 Ti with NVIDIA driver `615.78.08`, NixOS 26.11, kernel `7.3.1-cachyos`, KDE Wayland, and Android 17 GAPPS. The frame-rate trace is approximate. The screenshot reports Wild Life Extreme without specifying Unlimited mode.
+
 ## About this fork
 
-The module uses NixOS’s Waydroid service with the upstream patched host package and matching vendor image. Upstream’s NVIDIA stack provides Vulkan and GLES through NVK, plus hardware video decoding and encoding through NVDEC and NVENC. The NixOS package builds successfully, and boot and GPU acceleration on NixOS still need hardware verification.
+The module uses NixOS’s Waydroid service with the upstream patched host package and matching vendor image. Upstream’s NVIDIA stack provides Vulkan and GLES through NVK, plus hardware video decoding and encoding through NVDEC and NVENC. Android boot and hardware rendering were verified on the machine above.
 
 GPT 6.1 Sol built the NixOS port. The original project and its contributors built the Android and NVIDIA integration. See the [upstream project](https://github.com/cagedbird043/waydroid-a17-nvidia) for Arch Linux instructions, screenshots, benchmarks, and full acknowledgements.
