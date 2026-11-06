@@ -1,4 +1,7 @@
-# Waydroid A17 NVIDIA for NixOS
+# waydroid-a17-nvidia-nix
+
+> [!WARNING]
+> This project is completely vibeslopped. I have no fucking clue how it works at all so PLEASE be cautious before using it. This was intended only for me. It's a vibeslop fork of a vibeslop fork of a vibeslopped project lmao.
 
 Run Android 17 (LineageOS 24.0) in Waydroid with NVIDIA GPU acceleration. This fork packages the upstream NVIDIA integration as an x86_64 NixOS flake.
 
@@ -13,24 +16,24 @@ Start with an x86_64 NixOS machine, a Wayland desktop session, and an NVIDIA GPU
 
 ### 1. Add the module to your system flake
 
-If you already manage NixOS with a flake, keep your current nixpkgs input and host modules. Add the `waydroid-a17-nvidia` input, make it available to your `outputs` function, and add the module and its enable option as shown below.
+If you already manage NixOS with a flake, keep your current nixpkgs input and host modules. Add the `waydroid-a17-nvidia-nix` input, make it available to your `outputs` function, and add the module and its enable option as shown below.
 
 If your system still uses a plain `configuration.nix`, create `/etc/nixos/flake.nix` with this example. Keep your existing `configuration.nix` and its hardware imports. Replace `my-host` with the name you want to use in `nixosConfigurations`. This example uses the fork’s pinned nixpkgs.
 
 ```nix
 {
   inputs = {
-    waydroid-a17-nvidia.url = "github:ariaofdelusion/waydroid-a17-nvidia";
-    nixpkgs.follows = "waydroid-a17-nvidia/nixpkgs";
+    waydroid-a17-nvidia-nix.url = "github:ariaofdelusion/waydroid-a17-nvidia-nix";
+    nixpkgs.follows = "waydroid-a17-nvidia-nix/nixpkgs";
   };
 
-  outputs = { nixpkgs, waydroid-a17-nvidia, ... }: {
+  outputs = { nixpkgs, waydroid-a17-nvidia-nix, ... }: {
     nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
       modules = [
         ./configuration.nix
-        waydroid-a17-nvidia.nixosModules.default
+        waydroid-a17-nvidia-nix.nixosModules.default
         {
-          virtualisation.waydroid-a17-nvidia.enable = true;
+          virtualisation.waydroid-a17-nvidia-nix.enable = true;
           nix.settings.experimental-features = [ "nix-command" "flakes" ];
         }
       ];

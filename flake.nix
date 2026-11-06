@@ -8,8 +8,8 @@
     packages.x86_64-linux = let
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
     in rec {
-      waydroid-a17-nvidia = pkgs.callPackage ./nix/package.nix { };
-      default = waydroid-a17-nvidia;
+      waydroid-a17-nvidia-nix = pkgs.callPackage ./nix/package.nix { };
+      default = waydroid-a17-nvidia-nix;
     };
   };
 }

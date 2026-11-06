@@ -55,7 +55,7 @@ let
   '';
 
   payload = stdenvNoCC.mkDerivation {
-    pname = "waydroid-a17-nvidia-payload";
+    pname = "waydroid-a17-nvidia-nix-payload";
     inherit version;
     dontUnpack = true;
     dontFixup = true;
@@ -81,7 +81,7 @@ let
   stock = waydroid.override { inherit withNftables; };
 in
 stock.overridePythonAttrs (old: {
-  pname = "waydroid-a17-nvidia";
+  pname = "waydroid-a17-nvidia-nix";
   inherit version;
   src = fetchurl {
     url = "https://github.com/waydroid/waydroid/archive/${waydroidRev}.tar.gz";

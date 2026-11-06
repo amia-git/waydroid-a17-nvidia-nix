@@ -1,12 +1,12 @@
 { config, lib, pkgs, ... }:
 let
-  cfg = config.virtualisation.waydroid-a17-nvidia;
+  cfg = config.virtualisation.waydroid-a17-nvidia-nix;
   package = pkgs.callPackage ./package.nix {
     withNftables = config.networking.nftables.enable;
   };
 in
 {
-  options.virtualisation.waydroid-a17-nvidia.enable =
+  options.virtualisation.waydroid-a17-nvidia-nix.enable =
     lib.mkEnableOption "Waydroid with the Android 17 NVIDIA host integration";
 
   config = lib.mkIf cfg.enable {
