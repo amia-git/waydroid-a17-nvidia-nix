@@ -63,7 +63,7 @@ let
     installPhase = ''
       runHook preInstall
       mkdir native ota "$out"
-      tar --zstd -xf ${nativeBundle} -C native ./BUILD-RECORD.json
+      tar --zstd --occurrence=1 -xf ${nativeBundle} -C native ./BUILD-RECORD.json
       cat ${lib.concatStringsSep " " vendorParts} | zstd -d -o vendor.img
       python3 ${patchedHost}/packaging/vendor-ota.py vendor.img native/BUILD-RECORD.json ota \
         --tag v0.2.0-rc10-a17 --repo cagedbird043/waydroid-a17-nvidia
@@ -102,9 +102,11 @@ stock.overridePythonAttrs (old: {
   '';
   postInstall = ''
     libdir="$out/lib/waydroid-nvidia"
-    mkdir -p "$libdir"
-    cp -a ${payload}/native ${payload}/wd-native "$libdir/"
+    mkdir -p "$libdir/native"
+    cp -a ${payload}/native/{PACKAGED,dev,nvidia-prolapse,packaging,tools,waydroid} "$libdir/native/"
+    cp -a ${payload}/wd-native "$libdir/"
     chmod -R u+w "$libdir"
+    ln -s ${payload}/native/release "$libdir/native/release"
     ln -s ${payload}/vendor "$libdir/vendor"
     install -Dm755 ${patchedHost}/packaging/aur/waydroid-nvidia-bin/waydroid-nvidia-setup "$out/bin/waydroid-nvidia-setup"
     install -Dm644 ${patchedHost}/packaging/aur/waydroid-nvidia-bin/waydroid-nvidia-gpu.rules \
