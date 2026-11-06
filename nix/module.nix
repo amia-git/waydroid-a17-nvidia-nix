@@ -32,6 +32,6 @@ in
         fi
       '';
     };
-    boot.kernelModules = [ "erofs" ];
+    boot.kernelModules = [ "erofs" "xfrm_user" "xfrm_interface" ];
   };
 }
