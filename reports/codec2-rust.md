@@ -1,52 +1,54 @@
-# Codec2 Rust 化
+> Translated from Chinese.
 
-guest 里的 Codec2 服务 `android.hardware.media.c2@1.2-service-nvprolapse` 的实际工作已经全部在 Rust RM 里，
-从 `a17-20261028-2` 起发布。宿主机 VA-API 驱动 rustnv 用的是同一套 RM 视频代码。
+# Porting Codec2 to Rust
 
-## 现在的分工
+The guest Codec2 service `android.hardware.media.c2@1.2-service-nvprolapse` now performs its media processing in the Rust RM backend.
+The change shipped in `a17-20261028-2`. The host VA-API driver rustnv uses the same RM video code.
 
-路径缩写：`M` = `nvidia-prolapse/media`，`N` = `nvidia-prolapse/driver-source/native`（都在 `nvidia/waydroid-nvidia` 的 `a17-local`）。
+## How the code is split
 
-|部分|位置|语言|
+In this report, `M` means `nvidia-prolapse/media` and `N` means `nvidia-prolapse/driver-source/native`. Both are in the `a17-local` branch of `nvidia/waydroid-nvidia`.
+
+|Part|Location|Languages|
 |---|---|---|
-|Codec2 组件、参数、Store、服务入口|`M/c2/NvC2Component.cpp`、`NvC2Encoder.cpp`、`service.cpp`|C++|
-|编码会话薄层|`M/core/nvc2_encoder.{h,cpp}` → `nv_venc_sess_*`|C++ 壳，约 100 行|
-|编码：会话、码控、五种输入转换、SSE2 分块|`N/src/video/{venc,ffi_enc}.rs`、`enc/`，头文件 `N/video/nv_venc.h`|Rust|
-|解码驱动：队列、回放 CSD、多显示帧、flush/EOS、gralloc 校验|`N/src/video/{c2_dec,ffi_dec,c2_layout}.rs`，头文件 `N/video/nv_c2_dec.h`|Rust|
-|能力表与 `media_codecs` XML、`nvc2-xmlgen`|`N/src/video/{caps,ffi_caps}.rs`，头文件 `N/video/nv_c2_caps.h`|Rust|
+|Codec2 components, parameters, Store, service portal|`M/c2/NvC2Component.cpp`、`NvC2Encoder.cpp`、`service.cpp`|C++|
+|Encoding session thin layer|`M/core/nvc2_encoder.{h,cpp}` → `nv_venc_sess_*`|C++ shell, approximately 100 lines|
+|Encoding: Sessions, Code Controls, Five Input Conversions, SSE2 Fractures|`N/src/video/{venc,ffi_enc}.rs`, `enc/`, header `N/video/nv_venc.h`|Rust|
+|Decoding driver: Queue, play back CSD, multi-screen frame, Flush/ EOS, gralloc check|`N/src/video/{c2_dec,ffi_dec,c2_layout}.rs` Header File `N/video/nv_c2_dec.h`|Rust|
+|Capability table with `media_codecs` XML, `nvc2-xmlgen`|`N/src/video/{caps,ffi_caps}.rs` Header File `N/video/nv_c2_caps.h`|Rust|
 
-C++ 只留着 Android Codec2 接口要求的部分：组件生命周期、参数反射、C2 缓冲的读写、gralloc native handle 的外层校验。
-所有 Rust 导出都有 panic 边界，ABI 在 C/Rust 两侧对 32/64 位做了布局断言。
+C++ handles the parts required by Android's Codec2 interface: component lifecycle, parameter reflection, C2 buffer access, and validation of the outer gralloc native handle.
+All exported Rust functions have panic boundaries. ABI layout assertions cover 32-bit and 64-bit builds on both the C and Rust sides.
 
-## 和上游 Shiro836/waydroid-nvidia 的分叉
+## Differences from Shiro836/waydroid-nvidia
 
-相对上游 rc11（`7670f54`），`M` 下这些文件已删除，由上表的 Rust 代码取代：
+rc11(`7670f54`), under `M` these documents have been deleted and replaced by the Rust code in the table above:
 
-- `core/nvc2_decoder.{h,cpp}`：解码驱动。
-- `core/nvc2_caps.cpp`、`tools/nvc2_xmlgen.cpp`：能力表与 XML 生成。
-- `test/core_test.cpp`、`test/xml_test.cpp`、`test/nv_video_stub.{h,cpp}`：测试迁进 RM（假后端，30 项解码/布局测试）。
+- `core/nvc2_decoder.{h,cpp}`: Decoding driver.
+- `core/nvc2_caps.cpp`, `tools/nvc2_xmlgen.cpp`: Capability table and XML generation.
+- `test/core_test.cpp`, `test/xml_test.cpp`, `test/nv_video_stub.{h,cpp}`: Test moved into RM (false backend, 30 decoding/ layout test).
 
-另外 `c2/NvC2Component.cpp`、`service.cpp` 改成调用 Rust ABI；编码器（`NvC2Encoder`、`nvc2_encoder`）是本仓库新增的，上游没有。
+Also `c2/NvC2Component.cpp`, `service.cpp` replace with a call for Rust ABI; the encoder (`NvC2Encoder`, `nvc2_encoder`) is added to this repository and is not upstream.
 
-移植上游修复的办法：
+Approaches to upstream restoration of transplants:
 
-- 上游改了 `nvc2_decoder.cpp`、`nvc2_caps.cpp` 或 xmlgen：读懂后在对应的 Rust 文件里重写，不能 cherry-pick。
-- 上游改了 `c2/` 的组件代码：对照着手动合，注意我们这边调用的是 `nv_c2_dec_*`、`nv_c2_caps_*`。
-- 上游改了 RM 其余部分（`N/src` 中视频 C2 以外的代码）：照常合。
+- For upstream changes to `nvc2_decoder.cpp`, `nvc2_caps.cpp`, or xmlgen, port the fix into the corresponding Rust source.
+- Merge upstream `c2/` component changes manually, preserving calls to `nv_c2_dec_*` and `nv_c2_caps_*`.
+- Merge other RM changes under `N/src` normally.
 
-## 改造时补上的处理
+## Handling added during the port
 
-- 单个 VP9 输入含多张显示帧（superframe）时逐帧交付：非末帧用 `FLAG_INCOMPLETE` 克隆，末帧完成原工作。
-- CSD（启动与回放的编解码专用数据）每段最多 2 MiB，超了整体拒绝并报 `C2_BAD_VALUE`。
-- gralloc 句柄先在 C++ 里校验 native handle 外层（版本、fd 数、字数），再由 Rust 检查格式、几何、stride、offset、平面范围和重叠。
-- MaxInputSize 用 64 位带检查的算术，溢出就拒绝并保留旧值。
+- Individual VP9 Input multi-screen frame delivery: non-last frame `FLAG_INCOMPLETE` clone, the last frame completes the original work.
+- CSD (decoding special data for start-up and playback) has a maximum of 2 MiB per segment, which is more than total rejection and reporting `C2_BAD_VALUE`.
+- The gralloc handle first verifies the outer layer (versions, fds, words) in C++, and then Rust checks the format, geometry, stride, offset, plane scope and overlap.
+- MaxInputSize uses checked 64-bit arithmetic. An overflow rejects the new value and retains the previous one.
 
-## 性能
+## Performance
 
-1280×720 NV12、30 fps，每轮 330 帧去掉前 30 帧，新旧实现交替各跑五轮，取中位数（ms/帧）。
-计时包含提交和等待，不含文件读写和编码器开关。
+The workload was 1280×720 NV12 at 30 FPS. Each run processed 330 frames and discarded the first 30. The old and new implementations alternated for five runs each. Results are the median in milliseconds per frame.
+Timing includes submission and waiting and excludes file I/O and encoder startup and shutdown.
 
-|编码|码控|C 版|Rust 版|变化|
+|Encoding|Code|Version C|Rust version|Change|
 |---|---|---:|---:|---:|
 |H.264|CQP|0.591|0.597|+0.98%|
 |H.264|CBR|0.637|0.609|−4.38%|
@@ -55,13 +57,13 @@ C++ 只留着 Android Codec2 接口要求的部分：组件生命周期、参数
 |AV1|CQP|0.481|0.479|−0.50%|
 |AV1|CBR|0.497|0.500|+0.74%|
 
-六项里四项略快，最多快 4.4%，其余两项慢不到 1%，属于测量波动范围。
-画质：五种输入格式 × 三种编码的最低 PSNR 为 39.5 dB，和 C 版相同。
-解码没做计时对比，验收的是功能：四种解码各 60 帧逐帧一致，Chrome 播 VP9 60 秒 0 丢帧。
+Four out of six are slightly faster, up to 4.4 per cent, while the remaining two are less than 1 per cent slow and fall within the range of measuring fluctuations.
+Across the five input formats and three codecs, the lowest PSNR was 39.5 dB, matching the C version.
+Decoder validation covered correctness. All 60 frames matched for each of four codecs, and Chrome played 60 seconds of VP9 with zero dropped frames.
 
-能力表和 XML 换成 Rust 后，GNU/bionic、新旧共四份 XML 输出逐字节相同，安装记录里的 `media.xml_sha256` 没变。
+The capability table and XML were replaced with Rust, GNU/Bionic, four new and old XML outputs were identical by bytes, and the installation record `media.xml_sha256` remained unchanged.
 
-## 回归测试
+## Regression tests
 
-都在 `waydroid-a17-test` skill 里：`codec-smoke.sh`（含 VP9 superframe 用例）、`surface-smoke.sh`、`web-encode-test.sh`、
-`seccomp-check.sh`（冷启动和稳态两个窗口按实参对照策略）。编码计时用 `M/test/enc-benchmark.py`。
+All in `waydroid-a17-test` skill: `codec-smoke.sh` (including VP9 example), `surface-smoke.sh`, `web-encode-test.sh`,
+`seccomp-check.sh` (cold startup and steady state two windows based on a cross-reference strategy). Encoding timer `M/test/enc-benchmark.py`.

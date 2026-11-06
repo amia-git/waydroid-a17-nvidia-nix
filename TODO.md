@@ -1,38 +1,39 @@
+> Translated from Chinese.
+
 # TODO
 
-当前状态、测试结果和移植记录见 `reports/porting.md`；构建、测试、发版流程见 `.agents/skills/`。
+See `reports/porting.md` for status, test results, and porting notes. The build, test, and release workflows are in `.agents/skills/`.
 
-## 现状（2026-10-28）
+## Status (2026-10-28)
 
-- system：ATV LineageOS 24.0 GAPPS 版 `20261017`，Play 商店已认证。
-- vendor：自编 nvidia-prolapse；ANGLE → NVK，HWUI skiavk，NVDEC 硬解，NVENC 硬编（H.264/HEVC/AV1，Chrome WebCodecs 与 WebRTC 已实测）。
-- Codec2 编码核心使用 Rust，五种输入格式与 H.264/HEVC/AV1 已验证；能力枚举与 XML 使用同一快照，组件列表保持 4 解码 + 3 编码。
-- Codec2 seccomp 策略补齐日志 socket/connect 权限；冷启动与稳态 syscall 按实参核对，Surface 解码与网页编码有独立回归门禁。
-- Codec2 解码驱动使用 Rust：多显示帧逐帧交付；启动/回放 CSD 上限 2 MiB；gralloc 外壳、元数据与平面范围完整校验。VP9 superframe 的 ByteBuffer/Surface 两条路径与 Chrome 60 秒 VP9 播放已实测。
-- 多窗口（`persist.waydroid.multi_windows=true`）：freeform 卡片 + 带 KDE 边框的桌面窗口。
-- 宿主输入法：text-input-v3 → `WaydroidHostIme`。
-- 剪贴板：ext-data-control，主机复制经输入法推送进 Android；主机侧 Python 剪贴板服务已删除。
-- 文件共享：主机 `~/Downloads` 挂在 Android `Download/Host`（`waydroid.cfg` 的 `shared_folders` 可改），主机侧改动自动进媒体库。
-- 声音：经主机 PulseAudio 输出；网页音频等 AAudio 流也有声（不声明 MMAP），媒体音量默认最大，由主机控制音量。
-- Widevine：L3（`dumpsys android.hardware.drm.IDrmFactory/widevine`：`default_security_level: L3`，`hdcp_level_max: Unprotected`），无法提升。
-- root：KernelSU LKM，本地签名管理器 32708。
-- ABI：`x86_64, arm64-v8a, x86`，ARM 翻译用 ATV 自带的 `libndk_translation`，没有 `armeabi-v7a`。
+- System image: WayDroid-ATV LineageOS 24.0 GAPPS `20261017`. The Play Store is certified.
+- Vendor image: locally built nvidia-prolapse. ANGLE uses NVK, HWUI uses skiavk, and NVDEC and NVENC provide hardware decoding and encoding. H.264, HEVC, and AV1 encoding were tested with Chrome WebCodecs and WebRTC.
+- Codec2 uses a Rust encoding core. Five input formats and H.264, HEVC, and AV1 were verified. Capability enumeration and XML generation share the same snapshot, with four decoder and three encoder components.
+- The Codec2 seccomp policy permits the logging socket and connect call. Cold-start and steady-state syscalls were checked against their actual arguments. Surface decoding and browser encoding have separate regression checks.
+- The Rust Codec2 decoder delivers each display frame separately, caps startup and replay CSD at 2 MiB, and validates gralloc handles, metadata, and plane bounds. VP9 superframes were tested through ByteBuffer and Surface, along with 60 seconds of VP9 playback in Chrome.
+- Multi-window mode (`persist.waydroid.multi_windows=true`) provides freeform app windows and a desktop window with KDE decorations.
+- Host input method: text-input-v3 → `WaydroidHostIme`.
+- Clipboard: ext-data-control receives host copies and passes them into Android through the input method. The host Python clipboard service was removed.
+- File sharing: host `~/Downloads` appears as Android `Download/Host`. Change it through `shared_folders` in `waydroid.cfg`. Host changes are automatically indexed by the Android media library.
+- Audio: output goes through host PulseAudio. AAudio streams such as web audio work with MMAP disabled. Android defaults to maximum media volume and the host controls output volume.
+- Widevine: L3 (`dumpsys android.hardware.drm.IDrmFactory/widevine` reports `default_security_level: L3` and `hdcp_level_max: Unprotected`). The security level cannot be raised.
+- Root: KernelSU LKM, Local Signature Manager 32708.
+- ABIs: `x86_64, arm64-v8a, x86`. ARM translation uses ATV's `libndk_translation`, with no `armeabi-v7a` support.
 
-## 功能
+## Tests and follow-up
 
-1. **重负载实测**：3DMark Wild Life Extreme（Vulkan，4K）12287–13096 分、约 74 FPS，无 Xid，同一进程连续多遍稳定。Basemark GPU（Vulkan 1.0、4K、Medium、离屏、Z Prepass 关）：宿主官方驱动 35657（BC7），Waydroid 29369（ETC2），约 82%。还没测真实 3D 游戏。
-2. **跟进 libvulkan 上游修复**：A17 loader 的 R8G8B8 swapchain 检查直接调用 1.1 的 `GetPhysicalDeviceImageFormatProperties2` 原始指针，1.0 实例为空即崩；本仓库靠 gralloc 不声称 BGR888 可渲染（`patches/external_minigbm/0009`）绕开。loader 修复已提交 LineageOS Gerrit（[509993](https://review.lineageos.org/c/LineageOS/android_frameworks_native/+/509993)）并报给 Google（[b/577380015](https://issuetracker.google.com/issues/577380015)），等审核。
-3. **下个版本门禁工具预检**：门禁开跑前检查 `dump.erofs` / `debugfs` / `readelf` / `unshare` 等所需工具，缺失时明确报出对应 Arch 包名，避免裸 `Errno 2`。
+1. **Heavy workloads.** 3DMark Wild Life Extreme (Vulkan, 4K) scored 12,287–13,096, or about 74 FPS. Repeated runs in one process stayed stable with no Xid errors. Basemark GPU (Vulkan 1.0, 4K, Medium, offscreen, Z Prepass off) scored 35,657 on the host driver (BC7) and 29,369 in Waydroid (ETC2), about 82%. Actual 3D games have yet to be tested.
+2. **Track the upstream libvulkan fix.** The Android 17 loader's R8G8B8 swapchain check directly calls the Vulkan 1.1 function pointer `GetPhysicalDeviceImageFormatProperties2`. It crashes when the pointer is null in a Vulkan 1.0 instance. This repository works around it by having gralloc stop advertising BGR888 as renderable (`patches/external_minigbm/0009`). The loader fix is pending review at [LineageOS Gerrit 509993](https://review.lineageos.org/c/LineageOS/android_frameworks_native/+/509993) and was reported to Google as [b/577380015](https://issuetracker.google.com/issues/577380015).
+3. **Preflight the next release gate.** Check for `dump.erofs`, `debugfs`, `readelf`, `unshare`, and other required tools before running the gate. Report the corresponding Arch package when a tool is missing to avoid a bare `Errno 2`.
 
-## 不做
+## Out of scope
 
-- **整版跟进 waydroid-nvidia**：本仓库是分叉（自编双队列 NVK、主机侧补丁、自编 vendor），不随上游 rc 版本 rebase。上游有用的修复读懂后移植过来；NVIDIA 驱动升级后门禁不过时先看上游怎么修的。已移植到 v0.2.0 的全部适用修复（宿主侧、hwcomposer、RM ZCULL/TSG、NVK 计算队列族、驱动版本表），跳过的提交记在 `.agents/skills/waydroid-a17-upstream/references/upstream-ignore.txt`。ATV 出新 system 镜像时单独评估。Codec2 的解码、能力表/XML 已换成 Rust，上游对应的 C++ 修复要在 Rust 里重写，边界见 `reports/codec2-rust.md`。
+- **Rebasing on every waydroid-nvidia release.** This fork builds its own dual-queue NVK and vendor image and carries host patches. Port applicable upstream fixes individually, especially when a driver update fails the gate. All applicable fixes through v0.2.0 have been ported, covering the host, hwcomposer, RM ZCULL and TSG, the NVK compute queue family, and the driver version table. Skipped commits are recorded in `.agents/skills/waydroid-a17-upstream/references/upstream-ignore.txt`. Evaluate new ATV system images separately. Codec2 decoding, its capability table, and XML generation now use Rust, so corresponding C++ fixes need to be rewritten. See `reports/codec2-rust.md`.
 
-- **32 位 ARM（`armeabi-v7a`）**：现在的应用基本都有 arm64 版本（Play 早已要求 64 位，新手机也已不支持 32 位应用）。ATV A17 镜像只带 arm64 翻译；ATV 的 `vendor_google_proprietary_ndk_translation-prebuilt` 在 `16arm_16arm64` 分支上有 32 位库，但那是 Android 16 的。
-- **桌面窗口和卡片同时开**：两者共用一块 Android 屏幕，只能二选一。卡片加主机菜单里的 Android 应用启动项已经覆盖日常用法；只有用桌面小部件、或个别应用当卡片用有问题时才需要桌面窗口，临时切过去即可。
+- **32-bit ARM (`armeabi-v7a`).** Most apps now have arm64 builds. Google Play has long required 64-bit support and newer phones have dropped 32-bit app support. ATV's Android 17 image only includes arm64 translation. The `16arm_16arm64` branch of ATV's `vendor_google_proprietary_ndk_translation-prebuilt` contains 32-bit libraries for Android 16.
+- **Showing the desktop and individual app windows at the same time.** Both modes share one Android display. Individual windows and host menu entries cover everyday use. Switch to the desktop temporarily for widgets or apps that work poorly in individual windows.
 
-## 卡片模式与输入法的已知问题
+## Known issues with individual windows and input methods
 
-1. **卡片共用一块 Android 屏幕**：显示尺寸 = 宿主 + 200 headroom，窗口多时可能互相遮挡点击区域。
-2. **内嵌预编辑不显示**：fcitx5 用 Ctrl+Alt+P 打开内嵌预编辑后，Android 和 KWrite 一样，拼音仍只在候选框里，问题在 fcitx5/KWin 一侧。
-
+1. **Individual windows share one Android display.** The display size includes 200 units of headroom beyond the host size. When many windows are open, they can overlap and intercept clicks.
+2. **Inline preedit stays in the candidate popup.** With inline preedit enabled via Ctrl+Alt+P in Fcitx 5, pinyin still appears only in the candidate popup in Android and KWrite. The behavior is on the Fcitx 5 or KWin side.

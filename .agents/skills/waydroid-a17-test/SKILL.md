@@ -1,51 +1,53 @@
 ---
 name: waydroid-a17-test
-description: Test this project's Waydroid Android 17 NVIDIA stack on the author's machine — restart the session, run commands in the guest, try a module through the vendor overlay, NVDEC/NVENC Codec2 regression, Chrome WebCodecs/WebRTC hardware-encode check, graphics/HWUI checks and screenshots of Android windows. Use whenever a change must be verified inside Waydroid, for "测一下", "回归", "进容器", "logcat", "overlay", "截图" or any guest-side debugging.
+description: Test this project's Waydroid Android 17 NVIDIA stack on the author's machine — restart the session, run commands in the guest, try a module through the vendor overlay, NVDEC/NVENC Codec2 regression, Chrome WebCodecs/WebRTC hardware-encode check, graphics/HWUI checks and screenshots of Android windows. Use for guest-side debugging, regression checks, or verification inside Waydroid.
 ---
 
-# 测试
+> Translated from Chinese.
 
-机器：RTX 4060 Laptop、nvidia-open 615.78.08、KDE Plasma Wayland。NVIDIA 渲染节点 `/dev/dri/renderD129`（`renderD128` 是 AMD 核显）。
-脚本在 `.agents/skills/waydroid-a17-test/scripts/`（下文 `$T`）。需要 sudo 的脚本读 `SUDO_ASKPASS`。
+# Test
 
-## 会话与容器
+Machine: RTX 4060 Laptop, nvidia-open 615.78.08, KDE Plasma Wayland. NVIDIA rendering node `/dev/dri/renderD129` (`renderD128` is AMD identification).
+Script is in `.agents/skills/waydroid-a17-test/scripts/` (below `$T`). Script reading `SUDO_ASKPASS` is required for sudo.
+
+## Sessions and Containers
 
 ```bash
-$T/session-restart.sh                 # 后台启动并等到 ready；前台 `waydroid session start` 不会返回
-$T/guest.sh 'logcat -d -s nvc2 nvc2-enc | tail'   # root shell 进容器
+$T/session-restart.sh                 # Backstage start and wait until ready; front desk `waydroid session start` will not return
+$T/guest.sh 'logcat -d -s nvc2 nvc2-enc | tail'   # root shell in the container
 ```
 
-- 容器 `/data` = 宿主 `~/.local/share/waydroid/data`，推文件直接拷到 `.../data/local/tmp`。
-- 应用：`waydroid app launch <包名>`；网页：`waydroid app intent android.intent.action.VIEW <url>`。
-- 图形确认：`$T/guest.sh 'dumpsys SurfaceFlinger | grep GLES:'` 应是 ANGLE → NVK（RTX 4060）。
-- `dmesg | grep -i xid` 不应有新的 NVIDIA Xid。
+- Packaging `/data` = host `~/.local/share/waydroid/data`, and the push file is copied directly to `.../data/local/tmp`.
+- Application: `waydroid app launch <package-name>`; web page: `waydroid app intent android.intent.action.VIEW <url>`.
+- Graphic confirmation: `$T/guest.sh 'dumpsys SurfaceFlinger | grep GLES:'` should be ANGLE — NVK (RTX 4060).
+- `dmesg | grep -i xid` There should be no new NVIDIA Xid.
 
-## overlay 试单个模块
+## Overlay Try Single Modules
 
-`sudo install` 到 `/var/lib/waydroid/overlay/vendor/<同 vendor 内路径>`，再 `session-restart.sh`。`/vendor/odm` 下的
-服务同理（`overlay/vendor/odm/bin/hw/`，组 2000，0755）。测完记录 overlay 里有什么：发版前要全部删掉
-（`sudo find /var/lib/waydroid/overlay/vendor -type f`）。`media_codecs_c2.xml` 不在 overlay：它由宿主
-`/var/lib/waydroid-nvidia/vendor-image/` 只读挂进去，改编码器列表要同时改那里的 XML 和 `install.json` 里的
-`media.xml_sha256`/`codecs`，否则服务启动校验失败。
+`sudo install` to `/var/lib/waydroid/overlay/vendor/<relative-vendor-path>`, and `session-restart.sh`. `/vendor/odm` Under
+Service homogeneity (`overlay/vendor/odm/bin/hw/`, group 2000,0755). Checking out what's in overlay: delete all before release
+（ `sudo find /var/lib/waydroid/overlay/vendor -type f` ）。 `media_codecs_c2.xml` Not in overlay: It's by host
+`/var/lib/waydroid-nvidia/vendor-image/` Just read it in and change the encoder list from XML and `install.json`.
+`media.xml_sha256`/ `codecs`, otherwise the service start-up validation failed.
 
-## 编解码回归
+## Decrypt Returns
 
 ```bash
-make -C "$WS/nvidia/waydroid-nvidia/nvidia-prolapse/media" c2-smoke c2-enc-smoke   # 首次
+make -C "$WS/nvidia/waydroid-nvidia/nvidia-prolapse/media" c2-smoke c2-enc-smoke   # First
 CODEC_SMOKE_OUT=/tmp/codec-evidence $T/codec-smoke.sh
 ```
 
-期望：四种解码各 60 帧、0 bad buffers；三种编码各 60 进 60 出，宿主 FFmpeg 解码 0 错误（H.264 为 Constrained Baseline）。
-编码器开关 `persist.waydroid.nvidia_video_encode`、解码器开关 `persist.waydroid.nvidia_video_decode`（`waydroid prop set`）。
-脚本按组件名创建解码器，保留每个客户端及 FFmpeg/ffprobe 退出码，严格要求四解码各 60 帧/0 坏缓冲、三编码各 60 入/60 出、宿主 ffprobe 各 60 帧且 FFmpeg 无错误。另跑运行中 flush 后完整重播、有未完成工作时销毁、128 字节 0xff 坏码流输入（须零图像，收到 EOS 或明确错误）。反向门禁：`CODEC_SMOKE_FAULT=client-failure|wrong-name|truncated|bad-buffer`（逐一运行，均应非零；bad-buffer 为客户端首张图像的空缓冲故障注入）。输出目录保留原始日志与退出码。宿主 C 编码计时用 `M/test/enc-benchmark.py OUT`，330 帧去前 30、五次交替顺序，生成逐帧 CSV 与统计 JSON。
+Expected results: 60 frames and zero bad buffers for each of four decoders, and 60 frames in and out for each of three encoders. Host FFmpeg must decode without errors. H.264 uses Constrained Baseline.
+Encoder switch `persist.waydroid.nvidia_video_encode`, decoder switch `persist.waydroid.nvidia_video_decode` (`waydroid prop set`).
+The script creates decoders by component name and records every client, FFmpeg, and ffprobe exit status. It requires 60 frames and zero bad buffers from each decoder, 60 frames in and out from each encoder, 60 frames reported by host ffprobe, and no FFmpeg errors. It also tests full replay after flushing, destruction with pending work, and a malformed input of 128 bytes of 0xff. The last case must produce zero images and either EOS or a clear error. Run each negative test separately with `CODEC_SMOKE_FAULT=client-failure|wrong-name|truncated|bad-buffer`. Each must exit nonzero. The bad-buffer case injects an empty buffer into the first client frame. The output directory preserves raw logs and exit codes. For host C encoder timings, run `M/test/enc-benchmark.py OUT`. It discards the first 30 of 330 frames and alternates the order across five runs, producing per-frame CSV and summary JSON.
 
-VP9 多显示帧回归：`make -C "$WS/nvidia/waydroid-nvidia/nvidia-prolapse/media" superframe-test` 生成 `out/host/superframe/{vp9.mp4,pair.bin}`，
-并在宿主验证 59 输入、60 帧及 incomplete/final 事件。将两文件与新客户端放进 guest 同一目录后运行：
+VP9 Multiple frames regression: `make -C "$WS/nvidia/waydroid-nvidia/nvidia-prolapse/media" superframe-test` Generate `out/host/superframe/{vp9.mp4,pair.bin}`,
+Runs after the host verifies 59 input, 60 frames and incompile/final events. Puts both files in the same directory as the new client:
 `./c2_smoke vp9.mp4 c2.nvprolapse.vp9.decoder superframe pair.bin`、
 `./c2_surface_smoke vp9.mp4 c2.nvprolapse.vp9.decoder pair.bin`。
-两者必须报告 `superframe: 2 outputs at shared PTS, total=60`；Surface 还须 59 输入、60 输出、60 图像、EOS、0 错误。
+Both have to report `superframe: 2 outputs at shared PTS, total=60`; Surface has 59 input, 60 output, 60 image, EOS, 0 error.
 
-### Surface 与 seccomp 窗口
+### Surface and seccomp windows
 
 ```bash
 $T/surface-smoke.sh /tmp/surface-evidence
@@ -54,31 +56,31 @@ CODEC_SMOKE_OUT=/tmp/seccomp-evidence/clients \
   "$WS/nvidia/waydroid-nvidia/nvidia-prolapse/media/odm/etc/seccomp_policy/android.hardware.media.c2@1.2-nvprolapse.policy"
 ```
 
-Surface 脚本编译 `c2_surface_smoke`，四个指定组件各断言 60 输入、60 输出、60 张 PRIVATE Image、EOS 和正常销毁；每个退出码保存在 `exit-codes.tsv`。
-seccomp 脚本第二参数可留空（使用当前策略），其后可传自定义稳态负载命令，默认跑 `codec-smoke.sh`。冷窗口由 init `ctl.sigstop_on` 在 exec 前暂停，attach 后恢复并等待 Store；稳态窗口 attach 后跑客户端。以成功的非 NULL `PR_SET_SECCOMP` 为界，递归展开实际 guest include，保存安装前后 syscall 集合、逐调用实参及覆盖结论；未覆盖、未知参数谓词或 SIGSYS 均失败，不能用“无 SIGSYS”替代策略对照。
-提供策略文件时仅临时只读 bind 该文件，核对部署 SHA256，EXIT 时关闭 sigstop、停止服务、卸自身 bind、重启服务并核对原 SHA256。两个脚本共用 `/tmp/wd-guest.lock`；持锁上层用 `WD_GUEST_LOCKED=1` 调用，避免嵌套锁。
+Surface script compiled `c2_surface_smoke`, each of the four specified components asserts 60 input, 60 output, 60 PravATE image, EOS and normal destruction; each exit code is saved in `exit-codes.tsv`.
+The second parameter of the seccomp script can be left empty (using the current policy), followed by a custom steady state load command, default running `codec-smoke.sh`. The cold window is suspended by init `ctl.sigstop_on` before exec, anatach is restored and awaits Store; a steady state window atatach running the client. The successful non-NULL `PR_SET_SECCOMP` is used as a boundary, and the actual guest include is then rolled out, saves the syscald assembly before and after installation, uses the call-by feed and overlays the conclusion; the un overlayed, unknown parameter word or SIGSYS is failed and cannot be used as an alternative strategy comparison with the "No SIGSYS " .
+Only ad hoc bind files are provided to check the Sigstop when deploying SHA256 EXIT, to close the service, to stop the service, to untie the bind, to restart the service and to check the original SHA256. The two scripts are shared `/tmp/wd-guest.lock`; the upper layer of the lock is called `WD_GUEST_LOCKED=1` to avoid the nesting locks.
 
-## Chrome 硬件编码
+## Chloe Hardware Encoding
 
 ```bash
 WEB_ENCODE_OUT=/tmp/web-evidence $T/web-encode-test.sh 150
 ```
 
-仅在 guest Chrome 中打开页面。每个用例有 run UUID 与独立 ID；页面开始前 POST 请求宿主清空 logcat 并等待确认，结束后 POST JSON，宿主立即归档该窗口日志。WebCodecs 四项严格要求 60 输出、有关键帧、无错误；WebRTC 三项要求编码帧数 > 0、宽高至少 960×540，且各自窗口内有对应 AVC/HEVC/AV1 组件打开日志。证据目录含每项 JSON、logcat、开窗时间和总退出状态；超时、缺项或任一断言失败均非零。
+Opens the page only in the guest chrome. Each example is run UUID and standalone ID; POT requests the host to empty logcat before the page starts and waits to confirm that, immediately after POSS JSON, the host files the window log. WebCodecs four strict requirements 60 output, key frame, no error; WebRTC three request frames > 0, width at least 960 x 540 and each window has an AVC/HEVC/ AV1 log open. The evidence directory contains each JSON, logcat, window opening time and total exit status; it is not zero.
 
-## 截图与桌面
+## Screenshot and Desktop
 
-- 用 `kde_window` 的 list/activate/place 找和摆窗口，再截全屏；多窗口模式下每个安卓应用一个 KDE 窗口，
-  标题 `waydroid.<包名>`。整块安卓桌面窗口叫 `Waydroid`。
-- 截图要公开时先看内容：YouTube 推荐栏、通知、账号头像都可能带不该公开的东西，裁掉或换画面。
+- Find and set windows with `kde_window` list/activate/place to intercept full screens; apply a KDE window to each Andre in multiwindow mode,
+  Title `waydroid.<package-name>`. The entire Android desktop window is called `Waydroid`.
+- The screenshot should be made public by looking at the content: the YouTube recommendation column, the notification, and the account number first image may be removed or changed with something that should not be made public.
 
-## 宿主 Chrome/Firefox
+## Host Chloe/Firefox
 
-启动前清掉驱动变量：`env -u LIBVA_DRIVERS_PATH -u LIBVA_DRIVER_NAME -u NVD_BACKEND -u NVD_LOG`；实验用临时 profile
-（`--user-data-dir=/tmp/...`），用完删除。
+Clear drivers before startup: `env -u LIBVA_DRIVERS_PATH -u LIBVA_DRIVER_NAME -u NVD_BACKEND -u NVD_LOG`; experimentally use temporary profile
+(`--user-data-dir=/tmp/...`), delete after exhaustion.
 
-## 调试开关
+## Debug Switches
 
-`setprop waydroid.dump_hal 1`（下一帧打印图层、任务、窗口）；`waydroid prop set persist.waydroid.clipboard_debug true`
-后重启会话（logcat `hwcomposer` 的 `clipboard:` 行）。清空 Waydroid data 后要重新放 `/data/adb/ksud`、装 KernelSU 管理器
-（`kernelsu/README.md` 第 5 步），并重新 `waydroid prop set persist.waydroid.multi_windows true`。
+`setprop waydroid.dump_hal 1` (Next print layer, task, window); `waydroid prop set persist.waydroid.clipboard_debug true`
+Restart Session (logcat) `hwcomposer` It's `clipboard:` Line. Clear the Waydroid Data and reset it. `/data/adb/ksud` KernelSU Manager
+(`kernelsu/README.md` Step 5) and recommence `waydroid prop set persist.waydroid.multi_windows true`.

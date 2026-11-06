@@ -1,38 +1,40 @@
-# minigbm：Android 17 NVIDIA 补丁移植
+> Translated from Chinese.
 
-目标：`nvidia/work/minigbm`，ATV `lineage-24.0` 基线 `5f5797c`，本地分支 `nvidia-a17`；最终提交 `de6759b`。未修改正在同步的 `src/`，未推送。
+# Minigbm: Android 17 NVIDIA patch transplant
 
-## 逐补丁结果
+Target: `nvidia/work/minigbm`, ATV `lineage-24.0` baseline `5f5797c`, local branch `nvidia-a17`; final submission `de6759b`. Unmodified synchronised `src/`, not pushed.
 
-|补丁|结果|提交与适配|
+## Patch application results
+
+|Patches|Result|Presentation and suitability|
 |---|---|---|
-|0001 CPU usage does not force LINEAR on GPU render targets|冲突解决|`1d44e03`：复用 ATV 的 `unmask64` 消耗用量标志，保留参数声明顺序、scanout/cursor、相机及 RPI4/VAAPI 对齐；CPU+渲染保留非线性布局，并接受 FRONT_RENDERING。|
-|0002 pass the lock's access flags to the wrapper|冲突解决|`b46cadf`：保留 ATV 解映射无效状态返回 EINVAL 的检查，通过后调用带 READ/WRITE 标志的扩展；保留重复 lock 的标志扩宽与旧 wrapper 回退。|
-|0003 FP16 and 1010102 render targets from the wrapper|冲突解决|`3219d85`：ATV 已移除静态格式组合表，改为加入 `supported_formats` 并沿用 `gbm_mesa_bo_create2` 探测；要求 wrapper 直接分配 FP16/1010102，拒绝 R8 冒充。|
-|0004 P010 and a GPU-writable NV12/P010 layout for decoder output|冲突解决|`5d6cc2b`：P010 接入动态探测；适配新 `drv_bo_from_format(..., stride_align, ...)` 签名。NVIDIA wrapper 的布局扩展提供 256 字节 pitch、偶数高度及平面位置/容量；未导出该可选扩展的 wrapper 保留 ATV 布局，维持其他 GPU/RPI4 路径。|
-|0005 import into the wrapper on the first CPU map|冲突解决|`c34f6de`：ATV 已有首次 map 导入及 4096 宽 R8 载体，复用现有函数，移除分配 usage 必须带 SW 的 map/unmap 限制；保留无 plane 参数接口，增加 map 初始化失败检查。|
-|0006 YV12 for hardware decoders, carrier sized to the whole YV12 layout|丢弃（目标已覆盖）|ATV 动态探测已接受 YVU420_ANDROID+硬解标志；其载体使用 `4096 × ceil(total_size/4096)`，容纳完整 YV12，不再使用补丁所修复的半宽重塑。恢复旧静态组合表/重塑反而破坏 ATV。使用 `git am --skip`，无独立提交。|
-|0007 CPU-cached memory for buffers the CPU reads often|冲突解决|`3e6f2b4`：读取原始 `use_flags_copy` 判定 CPU_READ_OFTEN，防止 ATV 标志消耗使缓存请求失效；保留 test_only 不分配及 scanout 失败重试，并在重试时使用扩展入口。|
+|0001 CPU usage does not force LINEAR on GPU render targets|Conflict resolution|`1d44e03`: Reuse `unmask64` ATV consumption markers to keep the parameter declaration sequence, scanout/cursor, camera and RPI4/VAAPI alignment; CPU+ Rendering to keep nonlinear layouts and accept FRONT_RENDERING.|
+|0002 pass the lock's access flags to the wrapper|Conflict resolution|`b46cadf`: Keeps the ATV demapping invalid status check to return to EINVAL, and then calls the extension with the READ/WRITE logo; retains the double lock mark extension and the old wrapper retreat.|
+|0003 FP16 and 1010102 render targets from the wrapper|Conflict resolved|`3219d85`: ATV replaced the static format-combination table with `supported_formats` and still probes with `gbm_mesa_bo_create2`. Require the wrapper to allocate FP16 and 1010102 directly and reject an R8 fallback.|
+|0004 P010 and a GPU-writable NV12/P010 layout for decoder output|Conflict resolution|`5d6cc2b`: P010 Access Dynamic Detection; Fit for New `drv_bo_from_format(..., stride_align, ...)` Signs. NVIDIA wrapper 's layout extension provides 256 bytes pitch, even height and plane position/volume; no export of this optional extended wrapper to keep ATV layouts and maintain other GPU/RPI4 paths.|
+|0005 import into the wrapper on the first CPU map|Conflict resolution|`c34f6de`: ATV has first-time Map import and 4096 width R8 carrier, repeats the existing function and removes the SW 'smap/unmap limit that assigns usage; retains no plane parameter interface and adds map initialization failed to check.|
+|0006 YV12 for hardware decoders, carrier sized to the whole YV12 layout|Discard (target covered)|ATV Dynamic Detection has accepted YVU420_ANDROID+ hard-codification markers; its carrier uses `4096 × ceil(total_size/4096)` to accommodate the full YV12 and no longer uses semi-wide restorations repaired by patches. Restoring the old static assembly table/replacing destroys the ATV. Use `git am --skip`, without independent submission.|
+|0007 CPU-cached memory for buffers the CPU reads often|Conflict resolution|`3e6f2b4`: Read the original `use_flags_copy` to determine CPU_RED_OFTEN, to prevent ATV sign consumption from rendering the cache request ineffective; to keep test_only and failed scanout and to use the extension portal when retrying.|
 
-另有本地提交 `de6759b`（中文提交说明）：扩展查询仅用于动态 wrapper，保留 ATV 内嵌 wrapper 编译路径；无布局扩展时也使用格式字节步长，防止 P010 按半宽分配。
+Also submitted locally `de6759b` (in Chinese): Extension queries are used only for dynamic wapper, retaining the ATV embedded grinder compile path; formatted byte steps are also used for no layout extension to prevent P010 from being distributed half-wide.
 
-已导入的六个原补丁均通过 `git am -3` 导入并保留作者、原消息，消息正文追加中文适配说明。
+The six original patches that have been imported are imported through `git am -3` and the author, the original message, is retained. The message text adds an appropriate description in Chinese.
 
-## 静态自检
+## Static checks
 
-- `git diff --check 5f5797c..HEAD` 通过；`git status --short --branch` 仅输出 `## nvidia-a17`，工作树干净。
-- 全克隆冲突标记扫描无匹配。
-- 四个 wrapper ABI 头文件去除注释/空白后的声明与预编译 wrapper 源头完全一致：基础 `alloc_args/gbm_ops`、map flags、layout、alloc flags。未修改预编译库或其头文件。
-- 已查明 wrapper 导出四个对应 `get_gbm_*` 符号；查明用量/映射标志、格式布局函数及签名在结果源码中存在。
-- `gbm_mesa_driver/Android.bp` 已把 internals/backend 编入 `libminigbm_gralloc_gbm_mesa`，allocator/mapper@4.0 继续引用它；新增内容仅头文件，无新增 `.cpp/.c`，不需更改源文件列表。`Android.mk` 仍仅构建普通 Mesa wrapper；NVIDIA 产品需按既定产品层用预编译 wrapper 替换该模块。
-- 未运行构建或项目测试；完整 Android 树尚未可用。
+- `git diff --check 5f5797c..HEAD` through; `git status --short --branch` Only output `## nvidia-a17`, working trees clean.
+- There is no match for a fully cloned conflict tag scan.
+- The statement after the removal of the note/blank from the four slipper ABI header files is identical to the pre-recorded source: Foundation `alloc_args/gbm_ops`, Map Flags, Layout, Alloc Flags. No changes have been made to the pre-record library or its header.
+- Warpper has been identified to export four corresponding `get_gbm_*` symbols; the amount/map sign, format layout function and signature exist in the result source code.
+- `gbm_mesa_driver/Android.bp` Internals/backend has been compiled into `libminigbm_gralloc_gbm_mesa`, alloctor/mapper@4.0 and continues to refer to it; the new content is only for headlines, no new `.cpp/.c` and no changes to the list of source files are required. `Android.mk` The normal Messa wrapper is still constructed; NVIDIA products are to be replaced by pre-compiled wrapper by the specified product layer.
+- No build or project test is running; the complete Android tree is not available.
 
-## 运行时待验证
+## Runtime validation
 
-1. A17 allocator/mapper@4.0 在 32/64 位进程中加载预编译 wrapper 及三个版本化扩展，分配、跨进程导入和释放正常。
-2. CPU+GPU 渲染（截图、屏幕录制）保持 block-linear，READ/WRITE/重复 lock 的暂存复制方向正确；CPU-only 缓冲仍可线性映射。
-3. FP16/1010102 窗口、宽色域、奇数尺寸/非整齐宽度的 pitch 与 Android plane layout 一致。
-4. NV12/P010 的 256 字节 pitch、平面对齐/容量与 NVDEC、NVK、ANGLE 及宿主 Wayland 导入一致；10-bit 视频和无 Surface 的 ByteBuffer 解码正常。
-5. YV12 1920×816/1080 及更宽输出容量完整、无越界；首次 CPU lock 可映射无 SW allocation usage 的解码输出。
-6. CPU_READ_OFTEN 且无原始 scanout 的解码输出确实进入缓存内存，性能与同步正确；scanout 分配失败重试不改变 NVIDIA 意图。
-7. 非 NVIDIA 普通 wrapper、RPI4 相机/硬解及 ATV VAAPI 路径在保留的分支上无回归；实际 A17 Soong 编译仍需完整树验证。
+1. A17 alloctor/mapper@4.0 Load pre-compiler and three version extensions in 32/64 bits to distribute, cross-process import and release normal.
+2. The CPU+GPU rendering (clip, screen recording) maintains the block-linear, READ/WRITE/ repeat lock copy in the right direction; the CPU-only buffer remains linear.
+3. Verify that pitches for FP16 and 1010102 windows, wide color, and odd or unaligned widths match Android's plane layout.
+4. 256 bytes pitch for NV12/P010, flat faceup/volume is consistent with NVDEC, NVK, ANGLE and host Wayland; 10-bit video and ByteBuffer without Surface decoding is normal.
+5. Verify full, in-bounds output capacity for YV12 at 1920×816, 1920×1080, and wider resolutions. The first CPU lock should map decoder output even when it was allocated without software usage flags.
+6. The CPU_RED_OFTEN decoding output without the original scanout does enter the cache memory, and the performance and synchronization is correct; the scanout distribution failed to try again without changing the NVIDIA intent.
+7. Non-NVIDIA normal wrapper, RPI4 camera/ hardwired and ATV VAAPI paths do not revert on the reserved branch; the actual A17 Soong compilation still needs full tree validation.
